@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>People Counter AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex items-center justify-center p-6">
+
+    <div class="max-w-md w-full bg-gray-800 rounded-xl shadow-lg p-8 border border-gray-700">
+        <h1 class="text-2xl font-bold text-center mb-2 text-indigo-400">People Counter AI</h1>
+        <p class="text-gray-400 text-sm text-center mb-6">Upload an image to count people</p>
+
+        <div id="dropzone" class="border-2 border-dashed border-gray-600 hover:border-indigo-500 rounded-lg p-6 text-center cursor-pointer transition relative group">
+            <input type="file" id="fileInput" accept="image/*" class="hidden">
+            
+            <div id="uploadPrompt">
+                <svg class="mx-auto h-12 w-12 text-gray-400 group-hover:text-indigo-400 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 002-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <p class="mt-2 text-sm text-gray-300">Click or Drag & Drop your image here</p>
+                <p class="text-xs text-gray-500 mt-1">PNG, JPG up to 10MB</p>
+            </div>
+
+            <img id="imagePreview" class="hidden max-h-64 mx-auto rounded-lg shadow-md" alt="Preview">
+        </div>
+
+        <button id="uploadBtn" disabled class="w-full mt-6 bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium py-2.5 px-4 rounded-lg transition shadow-md flex items-center justify-center space-x-2">
+            <span>Analyze Image</span>
+        </button>
+
+        <div id="loading" class="hidden flex-col items-center justify-center mt-6">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-400"></div>
+            <p class="text-sm text-gray-400 mt-2">Processing with AI model...</p>
+        </div>
+
+        <div id="resultCard" class="hidden mt-6 bg-gray-750 border border-indigo-500/30 rounded-lg p-4 text-center bg-indigo-950/20">
+            <p class="text-sm text-gray-400 uppercase tracking-wider font-semibold">People Count</p>
+            <p id="countResult" class="text-5xl font-extrabold text-indigo-400 mt-1">0</p>
+        </div>
+    </div>
+
+    <script>
+        // Points to your FastAPI endpoint location and route name
+        const API_URL = 'http://127.0.0.1:8000/count-people'; 
+
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+        const uploadPrompt = document.getElementById('uploadPrompt');
+        const imagePreview = document.getElementById('imagePreview');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const loading = document.getElementById('loading');
+        const resultCard = document.getElementById('resultCard');
+        const countResult = document.getElementById('countResult');
+
+        // Trigger input file click on area click
+        dropzone.addEventListener('click', () => fileInput.click());
+
+        // Handle file selection
+        fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+
+        // Drag and Drop listeners
+        dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('border-indigo-500'); });
+        dropzone.addEventListener('dragleave', () => dropzone.classList.remove('border-indigo-500'));
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('border-indigo-500');
+            if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+        });
+
+        function handleFile(file) {
+            if (!file || !file.type.startsWith('image/')) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                imagePreview.src = e.target.result;
+                imagePreview.classList.remove('hidden');
+                uploadPrompt.classList.add('hidden');
+                uploadBtn.disabled = false;
+                resultCard.classList.add('hidden'); 
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Send image to FastAPI
+        uploadBtn.addEventListener('click', async () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            uploadBtn.classList.add('hidden');
+            loading.classList.remove('hidden');
+            resultCard.classList.add('hidden');
+
+            const formData = new FormData();
+            formData.append('file', file); // Matches your count_people(file: UploadFile) parameter
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error('API server error');
+
+                const data = await response.json();
+                
+                // Matches your exact backend response key: "people_count"
+                countResult.textContent = data.people_count;
+                resultCard.classList.remove('hidden');
+            } catch (error) {
+                alert('Failed to connect to the backend. Make sure uvicorn is running and CORS is enabled.');
+                console.error(error);
+            } finally {
+                loading.classList.add('hidden');
+                uploadBtn.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>

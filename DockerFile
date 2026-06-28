@@ -1,0 +1,20 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Install OS graphics libraries that OpenCV/YOLO require to run
+RUN apt-get update && apt-get install -y \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY main.py /app/main.py
+
+RUN pip install --no-cache-dir fastapi uvicorn ultralytics pillow python-multipart huggingface_hub
+
+# Pre-download YOLOv10x so it's baked into our executable image
+RUN python -c "from ultralytics import YOLO; YOLO('yolov10x.pt')"
+
+EXPOSE 8000
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
